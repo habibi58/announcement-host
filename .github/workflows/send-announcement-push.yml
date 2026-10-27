@@ -1,0 +1,45 @@
+name: Send announcement push
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - announcement.json
+
+permissions:
+  contents: read
+
+jobs:
+  send-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out announcement
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Authenticate to Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get FCM access token
+        id: access-token
+        shell: bash
+        run: |
+          token="$(gcloud auth print-access-token)"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Send announcement push
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FCM_ACCESS_TOKEN: ${{ steps.access-token.outputs.token }}
+        run: node .github/scripts/send-announcement.js
