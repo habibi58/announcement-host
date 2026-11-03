@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAnnouncementAdmin() {
+      return request.auth != null
+        && request.auth.token.announcementAdmin == true;
+    }
+
+    match /users/{userId} {
+      allow read: if (request.auth != null && request.auth.uid == userId)
+        || isAnnouncementAdmin();
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['profileName', 'updatedAt'])
+        && request.resource.data.profileName is string
+        && request.resource.data.profileName.size() <= 120
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+
+      match /privateAnnouncements/{announcementId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if isAnnouncementAdmin()
+          && request.resource.data.keys().hasAll([
+            'title', 'message', 'expires', 'expiresAt', 'createdAt', 'readAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'title', 'message', 'expires', 'expiresAt', 'createdAt', 'readAt'
+          ])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 1000
+          && request.resource.data.expires is string
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.expiresAt > request.time
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.readAt == null;
+        allow delete: if false;
+        allow update: if request.auth != null
+          && request.auth.uid == userId
+          && resource.data.readAt == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+          && request.resource.data.readAt == request.time;
+      }
+    }
+  }
+}

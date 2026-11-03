@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "privateAnnouncements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "readAt", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
