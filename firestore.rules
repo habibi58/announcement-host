@@ -11,14 +11,20 @@ service cloud.firestore {
         || isAnnouncementAdmin();
       allow create, update: if request.auth != null
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['profileName', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['profileName', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['profileName', 'fcmToken', 'updatedAt'])
         && request.resource.data.profileName is string
         && request.resource.data.profileName.size() <= 120
+        && (!('fcmToken' in request.resource.data)
+          || (request.resource.data.fcmToken is string
+            && request.resource.data.fcmToken.size() > 0
+            && request.resource.data.fcmToken.size() <= 4096))
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
 
       match /privateAnnouncements/{announcementId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
+        allow read: if (request.auth != null && request.auth.uid == userId)
+          || isAnnouncementAdmin();
         allow create: if isAnnouncementAdmin()
           && request.resource.data.keys().hasAll([
             'title', 'message', 'expires', 'expiresAt', 'createdAt', 'readAt'
@@ -44,6 +50,24 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
           && request.resource.data.readAt == request.time;
       }
+    }
+
+    match /privateAnnouncementPushJobs/{jobId} {
+      allow create: if isAnnouncementAdmin()
+        && request.resource.data.keys().hasAll(['userId', 'announcementId', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['userId', 'announcementId', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.userId.size() > 0
+        && request.resource.data.userId.size() <= 128
+        && request.resource.data.announcementId is string
+        && request.resource.data.announcementId.size() > 0
+        && request.resource.data.announcementId.size() <= 128
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
+    match /{path=**}/privateAnnouncements/{announcementId} {
+      allow read: if isAnnouncementAdmin();
     }
   }
 }

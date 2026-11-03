@@ -1,0 +1,44 @@
+name: Send private announcement push
+
+on:
+  repository_dispatch:
+    types:
+      - private-announcement
+
+permissions:
+  contents: read
+
+jobs:
+  send-private-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out private push sender
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Authenticate to Firebase
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get Firebase access token
+        id: access-token
+        shell: bash
+        run: |
+          token="$(gcloud auth print-access-token)"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Send private Android notification
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FCM_ACCESS_TOKEN: ${{ steps.access-token.outputs.token }}
+          PRIVATE_PUSH_JOB_ID: ${{ github.event.client_payload.jobId }}
+        run: node .github/scripts/send-private-announcement.js
