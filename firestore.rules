@@ -43,12 +43,14 @@ service cloud.firestore {
           && request.resource.data.expiresAt > request.time
           && request.resource.data.createdAt == request.time
           && request.resource.data.readAt == null;
-        allow delete: if false;
-        allow update: if request.auth != null
-          && request.auth.uid == userId
-          && resource.data.readAt == null
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
-          && request.resource.data.readAt == request.time;
+        allow delete: if isAnnouncementAdmin();
+        allow update: if (
+            request.auth != null
+            && request.auth.uid == userId
+            && resource.data.readAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt'])
+            && request.resource.data.readAt == request.time
+          );
       }
     }
 

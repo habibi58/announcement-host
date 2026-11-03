@@ -102,6 +102,35 @@ test('skips and removes already acknowledged messages without sending a push', a
   assert.equal(pushSent, false);
 });
 
+test('skips and removes the push job if its private message was removed first', async () => {
+  let pushSent = false;
+  let jobRemoved = false;
+  const result = await sendPrivateAnnouncementPush(jobId, {
+    accessToken: 'test-access-token',
+    projectId: 'fintra-project',
+    request: async (url, options = {}) => {
+      if (options.method === 'DELETE') {
+        jobRemoved = true;
+        return { ok: true, status: 200 };
+      }
+      if (url.includes('/messages:send')) pushSent = true;
+      if (url.includes('/privateAnnouncementPushJobs/')) {
+        return documentResponse({
+          userId: { stringValue: 'anonymous-user-123' },
+          announcementId: { stringValue: 'private-message-123' },
+        });
+      }
+      if (url.includes('/privateAnnouncements/')) return { ok: false, status: 404 };
+      throw new Error(`Unexpected request: ${url}`);
+    },
+    now,
+  });
+
+  assert.equal(result, 'skipped');
+  assert.equal(pushSent, false);
+  assert.equal(jobRemoved, true);
+});
+
 test('does not send to a user without a registered device token', async () => {
   await assert.rejects(
     sendPrivateAnnouncementPush(jobId, {

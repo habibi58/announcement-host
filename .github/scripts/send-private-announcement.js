@@ -35,10 +35,11 @@ function isNullField(value) {
     && value.nullValue === null;
 }
 
-async function getDocument(projectId, path, accessToken, request) {
+async function getDocument(projectId, path, accessToken, request, allowMissing = false) {
   const response = await request(firestoreDocumentUrl(projectId, path), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+  if (allowMissing && response.status === 404) return null;
   if (!response.ok) {
     throw new Error(`Firestore document lookup failed with HTTP ${response.status}.`);
   }
@@ -84,7 +85,12 @@ export async function sendPrivateAnnouncementPush(
     ['users', userId, 'privateAnnouncements', announcementId],
     token,
     request,
+    true,
   );
+  if (!announcement) {
+    await deleteDocument(project, ['privateAnnouncementPushJobs', id], token, request);
+    return 'skipped';
+  }
 
   const fields = announcement.fields || {};
   const title = stringField(announcement, 'title').trim();
